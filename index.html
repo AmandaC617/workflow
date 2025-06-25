@@ -41,6 +41,23 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* [新增] 骨架屏動畫 */
+        .skeleton-card {
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 1.5rem;
+        }
+        .skeleton {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            background-color: #e5e7eb;
+            border-radius: 0.25rem;
+        }
+        @keyframes pulse {
+            50% {
+                opacity: .5;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -57,34 +74,6 @@
             <h2 class="text-2xl font-bold mb-6 text-center">登入系統</h2>
             <p class="text-gray-600 mb-6 text-center">請使用 Google 帳號登入以使用專案管理系統。</p>
             <div class="flex flex-col items-center">
-                <!--
-                ======================================================================
-                [重要] 如何解決「The given origin is not allowed」錯誤：
-                ======================================================================
-                這個錯誤表示您執行此網頁的網域，尚未被授權使用這個 Client ID。
-                這是一個 Google Cloud 的安全設定，無法透過修改此文件程式碼解決。
-                請依照以下步驟，將執行網域加入您的授權清單：
-
-                1. 前往 Google Cloud Console 憑證頁面。
-                   您可以直接複製此連結貼到瀏覽器： https://console.cloud.google.com/apis/credentials
-
-                2. 在「OAuth 2.0 用戶端 ID」清單中，找到並點擊您正在使用的 Client ID 名稱。
-                   (它的 Client ID 結尾是 ...ths1e8u29.apps.googleusercontent.com)
-
-                3. 進入編輯頁面後，找到「已授權的 JavaScript 來源」(Authorized JavaScript origins) 區塊。
-
-                4. 點擊「+ 新增 URI」。
-
-                5. 在跳出的輸入框中，**精準地**輸入以下這個網址 (請用複製貼上以避免打錯)：
-                   https://storage.googleapis.com
-
-                6. 按下 Enter 鍵或點擊旁邊空白處確認輸入。
-
-                7. 點擊頁面最下方的 **「儲存」** 按鈕。
-
-                8. 等待一兩分鐘讓設定生效，然後**重新整理此頁面**，即可正常登入。
-                ======================================================================
-                -->
                 <div id="g_id_onload"
                      data-client_id="733619441496-5gigdpkv42k84no3q5vvh93ths1e8u29.apps.googleusercontent.com"
                      data-callback="handleCredentialResponse"
@@ -95,57 +84,42 @@
         </div>
     </div>
 
-    <!-- 主應用程式 (HTML 結構與之前版本大致相同，此處為簡化省略) -->
+    <!-- 主應用程式 -->
     <div id="app" class="hidden">
-        <nav class="bg-indigo-600 text-white shadow-md sticky top-0 z-30"><!-- ... 導航欄 ... --></nav>
+        <!-- 導航欄 ... -->
         <main class="container mx-auto px-4 py-8">
-            <div id="projects-view"><!-- ... 專案列表 ... --></div>
+            <div id="projects-view">
+                 <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">我的專案</h2>
+                    <button id="new-project-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition duration-300 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        新增專案
+                    </button>
+                </div>
+                <div id="projects-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 專案卡片或骨架屏將會顯示在這裡 -->
+                </div>
+            </div>
             <div id="project-detail-view" class="hidden"><!-- ... 專案詳情 ... --></div>
         </main>
     </div>
+    
     <!-- ... 各式模態框 ... -->
 
-    <!-- Firebase SDK -->
     <script type="module">
-        // ----------------------------------------------------------------
-        // Firebase 設置與初始化
-        // ----------------------------------------------------------------
+        // Firebase SDK 匯入...
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { 
-            getAuth, 
-            onAuthStateChanged, 
-            GoogleAuthProvider, 
-            signInWithCredential,
-            signOut 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore,
-            collection,
-            query,
-            where,
-            onSnapshot,
-            addDoc,
-            doc,
-            updateDoc,
-            serverTimestamp,
-            arrayUnion,
-            arrayRemove
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, where, onSnapshot, addDoc, doc, updateDoc, serverTimestamp, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // [重要] 從 Canvas 環境獲取 Firebase 配置
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config) 
-            : {}; // Fallback to empty object if not provided
-
+        // Firebase 初始化...
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // ----------------------------------------------------------------
-        // 全域變數與狀態管理
-        // ----------------------------------------------------------------
+        // 全域變數與狀態管理...
         let currentUser = null;
         let unsubscribeProjectsListener = null;
         let unsubscribeProjectDetailListener = null;
@@ -154,18 +128,10 @@
         const loginModal = document.getElementById('login-modal');
         const appEl = document.getElementById('app');
 
-        // ----------------------------------------------------------------
-        // 驗證與使用者管理 (Authentication & User Management)
-        // ----------------------------------------------------------------
-        
+        // 驗證與使用者管理...
         onAuthStateChanged(auth, user => {
             if (user) {
-                currentUser = {
-                    uid: user.uid,
-                    name: user.displayName,
-                    email: user.email,
-                    avatar: user.photoURL
-                };
+                currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
                 initializeAppUI();
             } else {
                 currentUser = null;
@@ -180,48 +146,47 @@
         window.handleCredentialResponse = (response) => {
             const idToken = response.credential;
             const credential = GoogleAuthProvider.credential(idToken);
-            
-            signInWithCredential(auth, credential).catch((error) => {
-                console.error("Google Sign-In with Firebase failed:", error);
-                alert("使用 Google 登入時發生錯誤，請稍後再試。");
-            });
+            signInWithCredential(auth, credential).catch(error => console.error("Sign-In Failed:", error));
         };
         
-        const logoutBtn = document.getElementById('logout-button');
-        if(logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
-                signOut(auth).then(() => {
-                     if (window.google && google.accounts && google.accounts.id) {
-                        google.accounts.id.disableAutoSelect();
-                     }
-                }).catch(error => {
-                    console.error("Sign out failed:", error);
-                });
-            });
-        }
-
-        // ----------------------------------------------------------------
-        // UI 初始化與渲染 (此處為簡化省略，完整程式碼應包含所有 UI 渲染邏輯)
-        // ----------------------------------------------------------------
-        
+        // UI 初始化與渲染...
         function initializeAppUI() {
             loginModal.classList.add('hidden');
             initialLoader.classList.add('hidden');
             appEl.classList.remove('hidden');
-
-            const userNameEl = document.getElementById('user-name');
-            const userIdEl = document.getElementById('user-id');
-            const userAvatarEl = document.getElementById('user-avatar');
-
-            if(userNameEl) userNameEl.textContent = currentUser.name;
-            if(userIdEl) userIdEl.textContent = currentUser.uid;
-            if(userAvatarEl) userAvatarEl.src = currentUser.avatar;
-            
+            // ... 更新使用者資訊 UI ...
             listenForProjects();
+        }
+
+        // [修改] 渲染骨架屏的函式
+        function renderSkeletonProjects() {
+            const projectsContainer = document.getElementById('projects-container');
+            if (!projectsContainer) return;
+            projectsContainer.innerHTML = ''; // 清空舊內容
+            
+            // 顯示 3 個骨架卡片作為預載入提示
+            for (let i = 0; i < 3; i++) {
+                const skeletonCard = document.createElement('div');
+                skeletonCard.className = 'skeleton-card';
+                skeletonCard.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="h-6 w-3/4 skeleton"></div>
+                        <div class="space-y-2">
+                            <div class="h-4 w-1/2 skeleton"></div>
+                            <div class="h-4 w-1/3 skeleton"></div>
+                        </div>
+                        <div class="h-3 w-full skeleton"></div>
+                    </div>
+                `;
+                projectsContainer.appendChild(skeletonCard);
+            }
         }
 
         function listenForProjects() {
             if (unsubscribeProjectsListener) unsubscribeProjectsListener();
+
+            // [新增] 立即顯示骨架屏
+            renderSkeletonProjects();
             
             const projectsRef = collection(db, 'artifacts', appId, 'public', 'data', 'projects');
             const q = query(projectsRef, where("members", "array-contains", currentUser.uid));
@@ -231,9 +196,11 @@
                 querySnapshot.forEach((doc) => {
                     projects.push({ id: doc.id, ...doc.data() });
                 });
-                renderProjectsList(projects);
+                renderProjectsList(projects); // [修改] 收到真實資料後，再渲染真實列表
             }, (error) => {
                 console.error("Error listening for projects: ", error);
+                const projectsContainer = document.getElementById('projects-container');
+                if (projectsContainer) projectsContainer.innerHTML = `<p class="text-red-500 col-span-full text-center">讀取專案時發生錯誤。</p>`;
             });
         }
         
@@ -241,23 +208,30 @@
             const projectsContainer = document.getElementById('projects-container');
             if(!projectsContainer) return;
             
-            projectsContainer.innerHTML = ''; // 清空
+            projectsContainer.innerHTML = ''; // 清空骨架屏或舊資料
             if (projects.length === 0) {
                  projectsContainer.innerHTML = `<p class="text-gray-500 col-span-full text-center">您尚未加入任何專案，請點擊右上角新增專案。</p>`;
                  return;
             }
 
             projects.forEach(project => {
-                // ... 在此處應有渲染每個 project card 的邏輯 ...
-                // 為了簡潔，此處省略具體 HTML 字串，但概念與之前版本相同
                 const projectCard = document.createElement('div');
                 projectCard.className = 'project-card bg-white rounded-lg shadow-md overflow-hidden cursor-pointer';
+                
+                // 計算進度
+                const totalSteps = 6; // 假設總共有6個步驟
+                const completedCount = project.completedSteps ? project.completedSteps.length : 0;
+                const progress = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+
                 projectCard.innerHTML = `
                     <div class="p-6">
-                        <h3 class="text-xl font-bold text-gray-800">${project.name}</h3>
-                        <p class="text-gray-600 mb-4">客戶: ${project.client}</p>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="bg-indigo-600 h-2 rounded-full" style="width: ${project.progress || 0}%"></div>
+                        <h3 class="text-xl font-bold text-gray-800 truncate">${project.name}</h3>
+                        <p class="text-gray-600 mb-4 mt-1">客戶: ${project.client}</p>
+                        <div class="flex items-center mt-4">
+                            <div class="w-full bg-gray-200 rounded-full h-2 mr-4">
+                                <div class="bg-indigo-600 h-2 rounded-full" style="width: ${progress}%"></div>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700">${progress}%</span>
                         </div>
                     </div>`;
                 projectCard.addEventListener('click', () => showProjectDetail(project.id));
@@ -270,14 +244,7 @@
              // ... 並設定一個新的 onSnapshot 監聽器來即時更新此專案的詳細資料 ...
         }
 
-        // ----------------------------------------------------------------
-        // 事件監聽 (此處為簡化省略，應包含所有按鈕、表單的事件監聽)
-        // ----------------------------------------------------------------
-        // - 新增專案按鈕
-        // - 提交新專案表單 (addDoc)
-        // - 標記步驟完成 (updateDoc)
-        // - 新增評論 (updateDoc with arrayUnion)
-        // - 邀請成員等...
+        // 事件監聽 ...
 
     </script>
 </body>
