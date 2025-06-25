@@ -58,19 +58,32 @@
             <p class="text-gray-600 mb-6 text-center">請使用 Google 帳號登入以使用專案管理系統。</p>
             <div class="flex flex-col items-center">
                 <!--
-                    [重要] 如何解決「The given origin is not allowed」錯誤：
+                ======================================================================
+                [重要] 如何解決「The given origin is not allowed」錯誤：
+                ======================================================================
+                這個錯誤表示您執行此網頁的網域，尚未被授權使用這個 Client ID。
+                這是一個 Google Cloud 的安全設定，無法透過修改此文件程式碼解決。
+                請依照以下步驟，將執行網域加入您的授權清單：
 
-                    這個錯誤表示您執行此網頁的網域，尚未被授權使用這個 Client ID。
-                    這是一個 Google Cloud 的安全設定，無法透過修改此文件程式碼解決。
-                    請依照以下步驟，將執行網域加入您的授權清單：
+                1. 前往 Google Cloud Console 憑證頁面。
+                   您可以直接複製此連結貼到瀏覽器： https://console.cloud.google.com/apis/credentials
 
-                    1. 前往 Google Cloud Console 憑證頁面。
-                    2. 在「OAuth 2.0 用戶端 ID」清單中，點擊您正在使用的 Client ID 名稱。
-                    3. 找到「已授權的 JavaScript 來源」(Authorized JavaScript origins) 區塊。
-                    4. 點擊「+ 新增 URI」。
-                    5. 在輸入框中，精準地輸入以下網址：
-                       https://storage.googleapis.com
-                    6. 點擊「儲存」，等待幾分鐘讓設定生效，然後重新整理此頁面。
+                2. 在「OAuth 2.0 用戶端 ID」清單中，找到並點擊您正在使用的 Client ID 名稱。
+                   (它的 Client ID 結尾是 ...ths1e8u29.apps.googleusercontent.com)
+
+                3. 進入編輯頁面後，找到「已授權的 JavaScript 來源」(Authorized JavaScript origins) 區塊。
+
+                4. 點擊「+ 新增 URI」。
+
+                5. 在跳出的輸入框中，**精準地**輸入以下這個網址 (請用複製貼上以避免打錯)：
+                   https://storage.googleapis.com
+
+                6. 按下 Enter 鍵或點擊旁邊空白處確認輸入。
+
+                7. 點擊頁面最下方的 **「儲存」** 按鈕。
+
+                8. 等待一兩分鐘讓設定生效，然後**重新整理此頁面**，即可正常登入。
+                ======================================================================
                 -->
                 <div id="g_id_onload"
                      data-client_id="733619441496-5gigdpkv42k84no3q5vvh93ths1e8u29.apps.googleusercontent.com"
@@ -269,4 +282,5 @@
     </script>
 </body>
 </html>
+
 
