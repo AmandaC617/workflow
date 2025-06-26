@@ -74,7 +74,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut, getRedirectResult, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -119,51 +119,39 @@
         };
 
         // --- AUTHENTICATION ---
-        // [修復] 採用最穩定的 Firebase 官方驗證流程，避免登入循環
-        function initializeAuthentication() {
-            // 1. 設定儲存方式為 localStorage，這是最持久的選項
-            setPersistence(auth, browserLocalPersistence)
-                .then(() => {
-                    // 2. 設定儲存方式後，再處理登入狀態
-                    
-                    // onAuthStateChanged 是唯一判斷登入狀態的地方
-                    // 它會在用戶登入或登出時，以及頁面載入時觸發一次
-                    onAuthStateChanged(auth, user => {
-                        UI.loader.classList.add('hidden'); // 收到狀態回覆後，隱藏載入畫面
-                        if (user) {
-                            // 已登入
-                            currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
-                            initializeAppUI();
-                        } else {
-                            // 未登入
-                            currentUser = null;
-                            if (unsubscribeProjects) unsubscribeProjects();
-                            if (unsubscribeProjectDetail) unsubscribeProjectDetail();
-                            UI.loginModal.classList.remove('hidden');
-                            UI.app.classList.add('hidden');
-                        }
-                    });
-
-                    // 處理從 Google 登入頁跳轉回來的結果
-                    // 如果成功，它會自動觸發上面的 onAuthStateChanged
-                    getRedirectResult(auth).catch(error => {
-                        console.error("處理登入重定向時發生錯誤:", error);
-                    });
-                })
+        // [修復] 改用 signInWithPopup 流程，避免頁面跳轉造成的狀態遺失問題
+        function handleGoogleLogin() {
+            const provider = new GoogleAuthProvider();
+            signInWithPopup(auth, provider)
                 .catch((error) => {
-                    console.error("設定儲存方式時發生錯誤:", error);
+                    console.error("Popup Sign-In Failed:", error);
+                    // 特別處理瀏覽器阻擋彈出視窗的狀況
+                    if (error.code === 'auth/popup-blocked') {
+                        alert('瀏覽器阻擋了彈出式視窗，請允許彈出式視窗後再試一次。');
+                    } else if (error.code === 'auth/cancelled-popup-request') {
+                        console.log('使用者關閉了登入視窗。');
+                    } else if (error.code === 'auth/unauthorized-domain') {
+                        alert('這個網域尚未被 Firebase 授權，請依照教學文件完成設定。');
+                    }
                 });
         }
         
-        // 頁面載入時立即執行驗證流程
-        initializeAuthentication();
-
-        function handleGoogleLogin() {
-            const provider = new GoogleAuthProvider();
-            UI.loader.classList.remove('hidden');
-            UI.loginModal.classList.add('hidden');
-            signInWithRedirect(auth, provider);
-        }
+        // onAuthStateChanged 是唯一且最終的狀態判斷器
+        onAuthStateChanged(auth, user => {
+            UI.loader.classList.add('hidden');
+            if (user) {
+                // 已登入
+                currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
+                initializeAppUI();
+            } else {
+                // 未登入
+                currentUser = null;
+                if (unsubscribeProjects) unsubscribeProjects();
+                if (unsubscribeProjectDetail) unsubscribeProjectDetail();
+                UI.loginModal.classList.remove('hidden');
+                UI.app.classList.add('hidden');
+            }
+        });
 
         // --- UI INITIALIZATION & RENDERING ---
         function initializeAppUI() {
