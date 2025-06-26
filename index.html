@@ -120,38 +120,39 @@
         };
 
         // --- AUTHENTICATION ---
-        // [修復] 簡化並修正了重定向登入的邏輯，以避免無限循環
-        function handleAuth() {
-            // 1. 頁面載入後，首先檢查是否有從 Google 重定向回來的登入結果
-            getRedirectResult(auth)
-                .catch((error) => {
-                    // 如果處理重定向時出錯，直接顯示錯誤
-                    console.error("處理登入重定向時發生錯誤:", error);
-                })
-                .finally(() => {
-                    // 2. 無論重定向成功或失敗，都設定 onAuthStateChanged 監聽器作為最終的狀態判斷
-                    onAuthStateChanged(auth, user => {
-                        UI.loader.classList.add('hidden'); // 無論如何，先隱藏全螢幕載入圖示
-                        if (user) {
-                            // 如果 user 物件存在，代表登入成功
-                            currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
-                            initializeAppUI();
-                        } else {
-                            // 如果 user 物件不存在，代表使用者尚未登入，顯示登入按鈕
-                            currentUser = null;
-                            if (unsubscribeProjects) unsubscribeProjects();
-                            if (unsubscribeProjectDetail) unsubscribeProjectDetail();
-                            UI.loginModal.classList.remove('hidden');
-                            UI.app.classList.add('hidden');
-                        }
-                    });
-                });
+        // [修復] 採用 Firebase 官方推薦的標準驗證流程，避免登入循環
+        function handleAuthentication() {
+            // 1. 首先，設定 onAuthStateChanged 作為最終的狀態判斷器
+            //    它會在用戶登入或登出時觸發
+            onAuthStateChanged(auth, user => {
+                UI.loader.classList.add('hidden'); // 無論結果如何，都隱藏載入畫面
+                if (user) {
+                    // 如果 user 物件存在，代表登入成功
+                    currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
+                    initializeAppUI();
+                } else {
+                    // 如果 user 物件為 null，代表使用者未登入
+                    currentUser = null;
+                    if (unsubscribeProjects) unsubscribeProjects();
+                    if (unsubscribeProjectDetail) unsubscribeProjectDetail();
+                    UI.loginModal.classList.remove('hidden');
+                    UI.app.classList.add('hidden');
+                }
+            });
+
+            // 2. 接著，處理從 Google 登入頁跳轉回來的結果
+            //    如果成功，它會自動觸發上面的 onAuthStateChanged
+            getRedirectResult(auth).catch(error => {
+                console.error("處理登入重定向時發生錯誤:", error);
+            });
         }
-        handleAuth(); // 頁面載入時立即執行驗證流程
+
+        // 頁面載入時立即執行驗證流程
+        handleAuthentication();
 
         function handleGoogleLogin() {
             const provider = new GoogleAuthProvider();
-            // 觸發登入前，先顯示載入畫面，提供更好的使用者體驗
+            // 點擊登入時，先顯示載入畫面，然後觸發頁面跳轉
             UI.loader.classList.remove('hidden');
             UI.loginModal.classList.add('hidden');
             signInWithRedirect(auth, provider);
