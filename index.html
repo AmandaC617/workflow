@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>專案工作流程管理系統 (Firebase 版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Identity Services Library -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- [注意] 不再需要 Google Identity Services Library -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f0f4f8; }
@@ -38,12 +37,11 @@
             <h2 class="text-2xl font-bold mb-6 text-center">登入系統</h2>
             <p class="text-gray-600 mb-6 text-center">請使用 Google 帳號登入以使用專案管理系統。</p>
             <div class="flex flex-col items-center">
-                <div id="g_id_onload"
-                     data-client_id="619527055783-0cf835insphcek1ae8avmiqpi3vjejkb.apps.googleusercontent.com" <!-- [完成] 已更新為您 Firebase 專案綁定的 Client ID -->
-                     data-callback="handleCredentialResponse"
-                     data-use_fedcm_for_prompt="false">
-                </div>
-                <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="center"></div>
+                <!-- [修復] 改為自訂的登入按鈕，以觸發重定向流程 -->
+                <button id="google-login-btn" class="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-lg shadow-sm flex items-center space-x-2">
+                    <svg class="w-5 h-5" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path><path fill="none" d="M0 0h48v48H0z"></path></svg>
+                    <span>使用 Google 帳號登入</span>
+                </button>
             </div>
         </div>
     </div>
@@ -78,7 +76,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -99,6 +97,7 @@
         const UI = {
             loader: document.getElementById('initial-loader'),
             loginModal: document.getElementById('login-modal'),
+            googleLoginBtn: document.getElementById('google-login-btn'),
             app: document.getElementById('app'),
             userName: document.getElementById('user-name'),
             userAvatar: document.getElementById('user-avatar'),
@@ -123,27 +122,37 @@
 
         // --- AUTHENTICATION ---
         onAuthStateChanged(auth, user => {
-            UI.loader.classList.add('hidden');
             if (user) {
                 currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
                 initializeAppUI();
             } else {
-                currentUser = null;
-                UI.loginModal.classList.remove('hidden');
-                UI.app.classList.add('hidden');
-                if (unsubscribeProjects) unsubscribeProjects();
-                if (unsubscribeProjectDetail) unsubscribeProjectDetail();
+                getRedirectResult(auth)
+                    .then((result) => {
+                        if (result) {
+                            currentUser = { uid: result.user.uid, name: result.user.displayName, email: result.user.email, avatar: result.user.photoURL };
+                            initializeAppUI();
+                        } else {
+                            UI.loader.classList.add('hidden');
+                            UI.loginModal.classList.remove('hidden');
+                            UI.app.classList.add('hidden');
+                        }
+                    }).catch((error) => {
+                        console.error("Redirect result error:", error);
+                        UI.loader.classList.add('hidden');
+                        UI.loginModal.classList.remove('hidden');
+                    });
             }
         });
 
-        window.handleCredentialResponse = response => {
-            const credential = GoogleAuthProvider.credential(response.credential);
-            signInWithCredential(auth, credential).catch(error => console.error("Sign-In Failed:", error));
-        };
+        function handleGoogleLogin() {
+            const provider = new GoogleAuthProvider();
+            signInWithRedirect(auth, provider);
+        }
 
         // --- UI INITIALIZATION & RENDERING ---
         function initializeAppUI() {
             UI.loginModal.classList.add('hidden');
+            UI.loader.classList.add('hidden');
             UI.app.classList.remove('hidden');
             UI.userName.textContent = currentUser.name;
             UI.userAvatar.src = currentUser.avatar;
@@ -297,6 +306,7 @@
         }
 
         // --- EVENT LISTENERS BINDING ---
+        UI.googleLoginBtn.addEventListener('click', handleGoogleLogin);
         UI.logoutBtn.addEventListener('click', () => signOut(auth));
         UI.userMenuBtn.addEventListener('click', () => UI.userMenu.classList.toggle('hidden'));
         UI.newProjectBtn.addEventListener('click', () => openProjectModal());
@@ -307,7 +317,6 @@
         UI.projectForm.addEventListener('submit', handleProjectFormSubmit);
         UI.cancelDeleteBtn.addEventListener('click', () => UI.deleteConfirmModal.classList.add('hidden'));
         
-        // Delegated event listeners for dynamically created content
         document.addEventListener('click', e => {
             if (e.target.id === 'back-to-projects') backToProjectsList();
             if (e.target.id === 'edit-project-btn') {
@@ -324,5 +333,3 @@
     </script>
 </body>
 </html>
-
-
