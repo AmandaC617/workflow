@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>專案工作流程管理系統 (Firebase 版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- [修復] 移除不再需要的 GSI Library -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f0f4f8; }
@@ -75,7 +74,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut, getRedirectResult, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -120,39 +119,47 @@
         };
 
         // --- AUTHENTICATION ---
-        // [修復] 採用 Firebase 官方推薦的標準驗證流程，避免登入循環
-        function handleAuthentication() {
-            // 1. 首先，設定 onAuthStateChanged 作為最終的狀態判斷器
-            //    它會在用戶登入或登出時觸發
-            onAuthStateChanged(auth, user => {
-                UI.loader.classList.add('hidden'); // 無論結果如何，都隱藏載入畫面
-                if (user) {
-                    // 如果 user 物件存在，代表登入成功
-                    currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
-                    initializeAppUI();
-                } else {
-                    // 如果 user 物件為 null，代表使用者未登入
-                    currentUser = null;
-                    if (unsubscribeProjects) unsubscribeProjects();
-                    if (unsubscribeProjectDetail) unsubscribeProjectDetail();
-                    UI.loginModal.classList.remove('hidden');
-                    UI.app.classList.add('hidden');
-                }
-            });
+        // [修復] 採用最穩定的 Firebase 官方驗證流程，避免登入循環
+        function initializeAuthentication() {
+            // 1. 設定儲存方式為 localStorage，這是最持久的選項
+            setPersistence(auth, browserLocalPersistence)
+                .then(() => {
+                    // 2. 設定儲存方式後，再處理登入狀態
+                    
+                    // onAuthStateChanged 是唯一判斷登入狀態的地方
+                    // 它會在用戶登入或登出時，以及頁面載入時觸發一次
+                    onAuthStateChanged(auth, user => {
+                        UI.loader.classList.add('hidden'); // 收到狀態回覆後，隱藏載入畫面
+                        if (user) {
+                            // 已登入
+                            currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
+                            initializeAppUI();
+                        } else {
+                            // 未登入
+                            currentUser = null;
+                            if (unsubscribeProjects) unsubscribeProjects();
+                            if (unsubscribeProjectDetail) unsubscribeProjectDetail();
+                            UI.loginModal.classList.remove('hidden');
+                            UI.app.classList.add('hidden');
+                        }
+                    });
 
-            // 2. 接著，處理從 Google 登入頁跳轉回來的結果
-            //    如果成功，它會自動觸發上面的 onAuthStateChanged
-            getRedirectResult(auth).catch(error => {
-                console.error("處理登入重定向時發生錯誤:", error);
-            });
+                    // 處理從 Google 登入頁跳轉回來的結果
+                    // 如果成功，它會自動觸發上面的 onAuthStateChanged
+                    getRedirectResult(auth).catch(error => {
+                        console.error("處理登入重定向時發生錯誤:", error);
+                    });
+                })
+                .catch((error) => {
+                    console.error("設定儲存方式時發生錯誤:", error);
+                });
         }
-
+        
         // 頁面載入時立即執行驗證流程
-        handleAuthentication();
+        initializeAuthentication();
 
         function handleGoogleLogin() {
             const provider = new GoogleAuthProvider();
-            // 點擊登入時，先顯示載入畫面，然後觸發頁面跳轉
             UI.loader.classList.remove('hidden');
             UI.loginModal.classList.add('hidden');
             signInWithRedirect(auth, provider);
@@ -341,3 +348,4 @@
     </script>
 </body>
 </html>
+
