@@ -39,7 +39,7 @@
             <p class="text-gray-600 mb-6 text-center">請使用 Google 帳號登入以使用專案管理系統。</p>
             <div class="flex flex-col items-center">
                 <div id="g_id_onload"
-                     data-client_id="733619441496-5gigdpkv42k84no3q5vvh93ths1e8u29.apps.googleusercontent.com"
+                     data-client_id="619527055783-0cf835insphcek1ae8avmiqpi3vjejkb.apps.googleusercontent.com" <!-- [完成] 已更新為您 Firebase 專案綁定的 Client ID -->
                      data-callback="handleCredentialResponse"
                      data-use_fedcm_for_prompt="false">
                 </div>
@@ -79,7 +79,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyALiBzYT1uRmRKBD7nlDLw0TyD3UVyn3S4",
@@ -277,7 +277,9 @@
 
         async function toggleStepComplete(projectId, stepNum) {
             const projectRef = doc(db, "projects", projectId);
-            const project = (await getDoc(projectRef)).data();
+            const projectSnap = await getDoc(projectRef);
+            if (!projectSnap.exists()) return;
+            const project = projectSnap.data();
             const isComplete = project.completedSteps && project.completedSteps.includes(stepNum);
             updateDoc(projectRef, {
                 completedSteps: isComplete ? arrayRemove(stepNum) : arrayUnion(stepNum)
