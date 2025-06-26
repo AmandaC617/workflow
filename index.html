@@ -119,7 +119,7 @@
         };
 
         // --- AUTHENTICATION ---
-       let isLoggingIn = false;
+    let isLoggingIn = false;
 function handleGoogleLogin() {
     if (isLoggingIn) return;
     isLoggingIn = true;
@@ -132,10 +132,17 @@ function handleGoogleLogin() {
             UI.googleLoginBtn.disabled = false;
             UI.googleLoginBtn.textContent = "使用 Google 帳號登入";
             // ...錯誤處理
+            if (error.code === 'auth/popup-blocked') {
+                alert('瀏覽器阻擋了彈出式視窗，請允許彈出式視窗後再試一次。');
+            } else if (error.code === 'auth/cancelled-popup-request') {
+                console.log('使用者關閉了登入視窗。');
+            } else if (error.code === 'auth/unauthorized-domain') {
+                alert('這個網域尚未被 Firebase 授權，請依照教學文件完成設定。');
+            }
         });
 }
-        
-       onAuthStateChanged(auth, user => {
+
+onAuthStateChanged(auth, user => {
     isLoggingIn = false;
     UI.googleLoginBtn.disabled = false;
     UI.googleLoginBtn.textContent = "使用 Google 帳號登入";
