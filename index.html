@@ -119,39 +119,38 @@
         };
 
         // --- AUTHENTICATION ---
-        // [修復] 改用 signInWithPopup 流程，避免頁面跳轉造成的狀態遺失問題
-        function handleGoogleLogin() {
-            const provider = new GoogleAuthProvider();
-            signInWithPopup(auth, provider)
-                .catch((error) => {
-                    console.error("Popup Sign-In Failed:", error);
-                    // 特別處理瀏覽器阻擋彈出視窗的狀況
-                    if (error.code === 'auth/popup-blocked') {
-                        alert('瀏覽器阻擋了彈出式視窗，請允許彈出式視窗後再試一次。');
-                    } else if (error.code === 'auth/cancelled-popup-request') {
-                        console.log('使用者關閉了登入視窗。');
-                    } else if (error.code === 'auth/unauthorized-domain') {
-                        alert('這個網域尚未被 Firebase 授權，請依照教學文件完成設定。');
-                    }
-                });
-        }
-        
-        // onAuthStateChanged 是唯一且最終的狀態判斷器
-        onAuthStateChanged(auth, user => {
-            UI.loader.classList.add('hidden');
-            if (user) {
-                // 已登入
-                currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
-                initializeAppUI();
-            } else {
-                // 未登入
-                currentUser = null;
-                if (unsubscribeProjects) unsubscribeProjects();
-                if (unsubscribeProjectDetail) unsubscribeProjectDetail();
-                UI.loginModal.classList.remove('hidden');
-                UI.app.classList.add('hidden');
-            }
+       let isLoggingIn = false;
+function handleGoogleLogin() {
+    if (isLoggingIn) return;
+    isLoggingIn = true;
+    UI.googleLoginBtn.disabled = true;
+    UI.googleLoginBtn.textContent = "登入中...";
+    const provider = new GoogleAuthProvider();
+    signInWithPopup(auth, provider)
+        .catch((error) => {
+            isLoggingIn = false;
+            UI.googleLoginBtn.disabled = false;
+            UI.googleLoginBtn.textContent = "使用 Google 帳號登入";
+            // ...錯誤處理
         });
+}
+        
+       onAuthStateChanged(auth, user => {
+    isLoggingIn = false;
+    UI.googleLoginBtn.disabled = false;
+    UI.googleLoginBtn.textContent = "使用 Google 帳號登入";
+    UI.loader.classList.add('hidden');
+    if (user) {
+        currentUser = { uid: user.uid, name: user.displayName, email: user.email, avatar: user.photoURL };
+        initializeAppUI();
+    } else {
+        currentUser = null;
+        if (unsubscribeProjects) unsubscribeProjects();
+        if (unsubscribeProjectDetail) unsubscribeProjectDetail();
+        UI.loginModal.classList.remove('hidden');
+        UI.app.classList.add('hidden');
+    }
+});
 
         // --- UI INITIALIZATION & RENDERING ---
         function initializeAppUI() {
